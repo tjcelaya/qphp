@@ -1,7 +1,19 @@
 <?php
+define('YALLO', "\033[33m");
+define('RED', "\033[33m");
+define('UNCOLOR', "\033[0m");
+// define('UNCOLOR', "\033[0m");
+function dbgp($m, $color=YALLO){
+	echo PHP_EOL.$color.(
+		is_array($m) ? var_export($m, true) : $m).UNCOLOR.PHP_EOL;}
+function bytesToString($bs) {
+	return array_map('ord', str_split($bs));
+}
 class KException extends Exception {};
 class KScan {
 	private $s, $i, $n;
+	public function __toString() {
+		return var_export(['s'=>bin2hex($this->s),'i'=>$this->i,'n'=>$this->n], true); }
 	public function __construct($s) {
 		$this->s = $s;
 		$this->i = 0;
@@ -86,6 +98,7 @@ class K {
 		} else {
 			$x = self::enc(1, func_get_args());
 		}
+		// dbgp($x);
 		fwrite($this->h, $x);
 		return $this->kr();
 	}
@@ -216,6 +229,7 @@ class K {
 	}
 
 	private static function d1($t, $x) {
+		// dbgp("d1: $t, $x");
 		switch ($t) {
 			case 0:
 				return self::dec($x);
@@ -260,7 +274,9 @@ class K {
 				return self::om($c);
 			case 99:
 				$k = self::dec($x);
+dbgp($k);
 				$v = self::dec($x);
+// dbgp($v);
 				return array_combine($k, $v);
 			case 101:
 				return null;
