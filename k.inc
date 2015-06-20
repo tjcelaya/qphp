@@ -1,26 +1,26 @@
 <?php
+error_reporting(-1);
 define('YALLO', "\033[33m");
-define('RED', "\033[33m");
+define('RED', "\033[31m");
+define('GREEN', "\033[32m");
 define('UNCOLOR', "\033[0m");
-// define('UNCOLOR', "\033[0m");
 function dbgp($m, $color=YALLO){
-	echo PHP_EOL.$color.(
-		is_array($m) ? var_export($m, true) : $m).UNCOLOR.PHP_EOL;}
-function bytesToString($bs) {
-	return array_map('ord', str_split($bs));
-}
+	echo PHP_EOL.$color.var_export($m, true).UNCOLOR;}
 class KException extends Exception {};
 class KScan {
 	private $s, $i, $n;
 	public function __toString() {
-		return var_export(['s'=>bin2hex($this->s),'i'=>$this->i,'n'=>$this->n], true); }
+		return bin2hex($this->s).PHP_EOL.str_repeat(' ',$this->i*2).'^'.str_repeat('-',($this->n-$this->i)*2).PHP_EOL;
+	}
 	public function __construct($s) {
 		$this->s = $s;
 		$this->i = 0;
-		$this->n = strlen($s);
+		$this->n = strlen($s)-0;
 	}
-	public function r8() {
+	public function r8($log=false) {
+
 		if ($this->i >= $this->n) {
+			dbgp("STOP I THINK",RED);
 			return -1;
 		}
 
@@ -229,12 +229,12 @@ class K {
 	}
 
 	private static function d1($t, $x) {
-		// dbgp("d1: $t, $x");
+		dbgp("d1: $t");
 		switch ($t) {
 			case 0:
 				return self::dec($x);
 			case 1:
-				return 1 == $x->r8();
+				return 1 == $x->r8(true);
 			case 4:
 				return $x->r8();
 			case 5:
@@ -249,6 +249,7 @@ class K {
 				if ($a[2]) {
 					throw new Exception("Number too long(64)");
 				}
+				dbgp('got a long:'.$a[1],GREEN);
 				return $a[1];
 			case 8:
 				return $x->rn("f", 4);
@@ -257,26 +258,37 @@ class K {
 			case 10:
 				return $x->s1();
 			case 11:
+				// eval(\Psy\sh());
 				$s = "";
 				while (ord($c = $x->s1())) {
 					$s .= $c;
 				}
+				dbgp('got a symbol:'.$s,GREEN);
 				return $s;
 			case 14:
 				return 86400 * (10957 + $x->rn("l", 4));
+			case 97:
+				// eval(\Psy\sh());
+				throw new Exception("How we process enum?");
 			case 98:
+				dbgp('table', RED);
 				$x->s1();
-				$k = self::dec($x);
-				$v = self::dec($x);
+				$k = self::dec($x,true);
+				$v = self::dec($x,true);
 				$c = array();
 				self::flip($c, $k);
 				self::flip($c, $v);
-				return self::om($c);
+				$maybeTable=self::om($c);
+				dbgp($maybeTable,GREEN);
+				// eval(\Psy\sh());
+
+				return $maybeTable;
 			case 99:
-				$k = self::dec($x);
-dbgp($k);
-				$v = self::dec($x);
-// dbgp($v);
+				dbgp('dict', RED);
+				$k = self::dec($x,true);
+				dbgp($k,GREEN);
+				$v = self::dec($x,true);
+				dbgp($v,GREEN);
 				return array_combine($k, $v);
 			case 101:
 				return null;
@@ -287,13 +299,23 @@ dbgp($k);
 		}
 	}
 
-	private static function dec($x) {
+	private static function dec($x,$care=false) {
+		// if($care) eval(\Psy\sh());
+
+		if($care) dbgp((string)$x);
 		$t = $x->r8();
+		if($care) dbgp($t,RED);
+		if($care) dbgp((string)$x);
+
 		if ($t < 0) {
 			return self::d1(-$t, $x);
 		}
 
 		if ($t == 99 || $t == 98) {
+
+			if($care) {
+				// eval(\Psy\sh());
+			}
 			return self::d1($t, $x);
 		}
 
@@ -303,13 +325,14 @@ dbgp($k);
 
 		$n = self::d1(6, $x);
 		if ($t === 10) {
+			// if($care) eval(\Psy\sh());
 			return $x->sn($n);
 		}
-
 		$a = array();
 		for ($i = 0; $i < $n; ++$i) {
 			$a[] = self::d1($t, $x);
 		}
+		// if($care) eval(\Psy\sh());
 
 		return $a;
 	}
