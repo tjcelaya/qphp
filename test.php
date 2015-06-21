@@ -1,36 +1,109 @@
 <?php
-define('YALLO', "\033[33m");
-define('RED', "\033[31m");
-define('GREEN', "\033[32m");
-define('BLUE', "\033[35m");
-define('CYAN', "\033[36m");
-define('UNCOLOR', "\033[0m");
-function dbgp($m, $color = YALLO) {
-    if ($m instanceof KScan === false &&
-            is_array($m) || is_object($m))
-        $m = var_export($m, true);
-  echo PHP_EOL . $color . $m . UNCOLOR;}
-
+require_once 'dbg.inc';
 require_once 'k.inc';
 
 class KTest extends PHPUnit_Framework_TestCase {
 
   protected $conn = null;
 
-  public function setUp(){ $this->conn = $k = new K("localhost", 1234); }
+  public function setUp(){
+    $this->conn = $k = new K("localhost", 1234); }
   public function tearDown(){ }
 
   private function q($stmt) { return $this->conn->k($stmt); }
 
   public function testAtoms() {
-    $this->assertTrue(1   == $this->q('1'));
-    $this->assertTrue('a' == $this->q('`a'));
+    $this->assertEquals(1, $this->q('1'));
+    $this->assertEquals('a', $this->q('`a'));
+    $this->assertEquals('a', $this->q('"a"'));
+    $this->assertEquals('abc', $this->q('"abc"'));
   }
   public function testLists() {
-    $this->assertTrue([1,2,3]       == $this->q('1 2 3'));
-    $this->assertTrue(['a','b','c'] == $this->q('`a`b`c'));
+    $this->assertEquals([1,2,3], $this->q('1 2 3'));
+    $this->assertEquals([[1,2,3]], $this->q('enlist 1 2 3'));
+    $this->assertEquals([1,2,3,'a','b'], $this->q('1 2 3,`a`b'));
+    $this->assertEquals(['a','b','c'], $this->q('`a`b`c'));
+    $this->assertEquals(['a'], $this->q('enlist `a'));
+    $this->assertEquals([['a','b','c']], $this->q('enlist `a`b`c'));
   }
   public function testDicts() {
-    $this->assertTrue(['a'=>1,'b'=>2]       == $this->q('`a`b!1 2'));
+    $this->assertEquals(['a'=>1,'b'=>2], $this->q('`a`b!1 2'));
+    $this->assertEquals(['a'=>[1],'b'=>[2]], $this->q('`a`b!enlist each 1 2'));
+    $this->assertEquals(['a'=>1,'b'=>2,'c'=>'d'], $this->q('`a`b`c!1 2,`d'));
   }
+  public function testSingleRowTable() {
+    $this->assertEquals(
+      [
+        (object) ['a'=>1,'b'=>2],
+      ], $this->q('([]a:enlist 1;b: enlist 2)'));
+    $this->assertEquals(
+      [
+        (object) ['a'=>'c','b'=>'d'],
+      ], $this->q('([]a:enlist `c;b: enlist `d)'));
+    $this->assertEquals(
+      [
+        (object) ['a'=>'c'],
+      ], $this->q('([]a:enlist `c)'));
+    $this->assertEquals(
+      [
+        (object) ['a'=>'d','b'=>[1,2,3],'c'=>['q'=>5,'w'=>6]],
+      ], $this->q('([]a:enlist `d;b:enlist 1 2 3;c:(enlist `q`w!5 6))'));
+    // $this->assertEquals(
+    //   [
+    //     (object) ['a'=>(object)['c'],'b'=>(object)['d']],
+    //   ], $this->q('([]a:enlist "c";b: enlist "d")'));
+  }
+  public function testMultiRowTable() {
+    $this->assertEquals(
+      [
+        (object) ['a'=>'c'],
+        (object) ['a'=>'d'],
+      ], $this->q('([]a:`c`d)'));
+    $this->assertEquals(
+      [
+        (object) ['a'=>1,'b'=>2],
+        (object) ['a'=>3,'b'=>4],
+      ], $this->q('([]a:1 3;b:2 4)'));
+    $this->assertEquals(
+      [
+        (object) ['a'=>'d','b'=>[1,2,3],'c'=>['q'=>5,'w'=>6]],
+        (object) ['a'=>'e','b'=>[7,8,9],'c'=>['e'=>10,'r'=>11]],
+      ], $this->q('([]a:`d`e;b:(1 2 3;7 8 9);c:( (`q`w!5 6);(`e`r!10 11) ))'));
+  }
+  public function testSortedSingleRowTable() {
+    // global $DP; $DP = true;
+    $this->assertEquals(
+      [
+        (object) ['a'=>1,'b'=>2],
+      ], $this->q('`s#([]a:enlist 1;b:enlist 2)'));
+    $this->assertEquals(
+      [
+        (object) ['a'=>'c'],
+      ], $this->q('`s#([]a:enlist `c)'));
+  }
+  public function testSortedMultiRowTable() {
+    // global $DP; $DP = true;
+    $this->assertEquals(
+      [
+        (object) ['a'=>1,'b'=>2],
+        (object) ['a'=>3,'b'=>4],
+      ], $this->q('`s#([]a:1 3;b:2 4)'));
+    $this->assertEquals(
+      [
+        (object) ['a'=>'c'],
+        (object) ['a'=>'d'],
+      ], $this->q('`s#([]a:`c`d)'));
+  }
+  public function testKeyedTable() {
+    global $DP; $DP = true;
+    $this->assertEquals(
+      [
+        (object) ['a'=>1,'b'=>2]
+      ], $this->q('([a:enlist 1]b:enlist 2)'));
+    // $this->assertEquals(
+    //   [
+    //     (object) ['a'=>1,'b'=>2]
+    //   ], $this->q('([a:1 3]b:2 4)'));
+  }
+
 }
