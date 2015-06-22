@@ -14,7 +14,7 @@ function dbgp($m, $color = YALLO,$nl = false) {
     $m = var_export($m, true);
   echo PHP_EOL . $color . $m . UNCOLOR . ($nl?PHP_EOL:'');}
 function qtype($t) {
-  $maybeAtom = $t<0;
+  $maybeAtom = $t<=19&&$t!=0;
   return [
     0   => 'general list',
     1   => 'boolean',
@@ -50,5 +50,8 @@ function qtype($t) {
     110 => 'f/:',
     111 => 'f\:',
     112 => 'dynamic load',
-  ][$t].' '.($maybeAtom?'(atom)':'(list)');
+  ][$t].' '.($maybeAtom?'(atom)':'');
+}
+function applyDepth($str, $depth) {
+    return implode("\n",array_map(function($s)use($depth){return str_repeat('    ', $depth).$s;},explode("\n", $str)));
 }

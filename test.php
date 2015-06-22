@@ -34,19 +34,19 @@ class KTest extends PHPUnit_Framework_TestCase {
   public function testSingleRowTable() {
     $this->assertEquals(
       [
-        (object) ['a'=>1,'b'=>2],
+        ['a'=>1,'b'=>2],
       ], $this->q('([]a:enlist 1;b: enlist 2)'));
     $this->assertEquals(
       [
-        (object) ['a'=>'c','b'=>'d'],
+        ['a'=>'c','b'=>'d'],
       ], $this->q('([]a:enlist `c;b: enlist `d)'));
     $this->assertEquals(
       [
-        (object) ['a'=>'c'],
+        ['a'=>'c'],
       ], $this->q('([]a:enlist `c)'));
     $this->assertEquals(
       [
-        (object) ['a'=>'d','b'=>[1,2,3],'c'=>['q'=>5,'w'=>6]],
+        ['a'=>'d','b'=>[1,2,3],'c'=>['q'=>5,'w'=>6]],
       ], $this->q('([]a:enlist `d;b:enlist 1 2 3;c:(enlist `q`w!5 6))'));
     // $this->assertEquals(
     //   [
@@ -56,42 +56,42 @@ class KTest extends PHPUnit_Framework_TestCase {
   public function testMultiRowTable() {
     $this->assertEquals(
       [
-        (object) ['a'=>'c'],
-        (object) ['a'=>'d'],
+        ['a'=>'c'],
+        ['a'=>'d'],
       ], $this->q('([]a:`c`d)'));
     $this->assertEquals(
       [
-        (object) ['a'=>1,'b'=>2],
-        (object) ['a'=>3,'b'=>4],
+        ['a'=>1,'b'=>2],
+        ['a'=>3,'b'=>4],
       ], $this->q('([]a:1 3;b:2 4)'));
     $this->assertEquals(
       [
-        (object) ['a'=>'d','b'=>[1,2,3],'c'=>['q'=>5,'w'=>6]],
-        (object) ['a'=>'e','b'=>[7,8,9],'c'=>['e'=>10,'r'=>11]],
+        ['a'=>'d','b'=>[1,2,3],'c'=>['q'=>5,'w'=>6]],
+        ['a'=>'e','b'=>[7,8,9],'c'=>['e'=>10,'r'=>11]],
       ], $this->q('([]a:`d`e;b:(1 2 3;7 8 9);c:( (`q`w!5 6);(`e`r!10 11) ))'));
   }
   public function testSortedSingleRowTable() {
     // global $DP; $DP = true;
     $this->assertEquals(
       [
-        (object) ['a'=>1,'b'=>2],
+        ['a'=>1,'b'=>2],
       ], $this->q('`s#([]a:enlist 1;b:enlist 2)'));
     $this->assertEquals(
       [
-        (object) ['a'=>'c'],
+        ['a'=>'c'],
       ], $this->q('`s#([]a:enlist `c)'));
   }
   public function testSortedMultiRowTable() {
     // global $DP; $DP = true;
     $this->assertEquals(
       [
-        (object) ['a'=>1,'b'=>2],
-        (object) ['a'=>3,'b'=>4],
+        ['a'=>1,'b'=>2],
+        ['a'=>3,'b'=>4],
       ], $this->q('`s#([]a:1 3;b:2 4)'));
     $this->assertEquals(
       [
-        (object) ['a'=>'c'],
-        (object) ['a'=>'d'],
+        ['a'=>'c'],
+        ['a'=>'d'],
       ], $this->q('`s#([]a:`c`d)'));
   }
   public function testKeyedTable() {

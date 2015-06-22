@@ -228,9 +228,9 @@ class K {
     return $o;
   }
 
-  private static function d1($t, $x) {
-    dbgp("START d1: ".qtype($t),RED);
-    dbgp("$x");
+  private static function d1($t, $x, $depth=0) {
+    $depth++;
+    // dbgp("START d1: ".qtype($t),RED);
     $result = null;
     switch ($t) {
       case 0:
@@ -279,20 +279,32 @@ class K {
         $result = 86400 * (10957 + $x->rn("l", 4));
         break;
       case 98:
+        dbgp(qtype($t),RED);
+        // dbgp("$x");
         $x->s1();
+        // dbgp("$x");
         $k = self::dec($x);
+        dbgp(applyDepth('$k:'.var_export($k,true),$depth),UNCOLOR);
+        // dbgp("$x");
         $v = self::dec($x);
+        dbgp(applyDepth('$v:'.var_export($v,true),$depth),UNCOLOR);
+        // dbgp("$x");
         $c = array();
         self::flip($c, $k);
         self::flip($c, $v);
-        $maybeTable=self::om($c);
-        $result = $maybeTable;
+        $result = self::om($c);
+        dbgp(applyDepth('finished a table',$depth),PURP);
         break;
       case 99:
-        $k = self::dec($x,true);
-        dbgp('$k:'.var_export($k,true),PURP);
-        $v = self::dec($x,true);
-        dbgp('$v:'.var_export($v,true),PURP);
+        dbgp(qtype($t),RED);
+        // dbgp("$x");
+        $k = self::dec($x,true,$depth);
+        // dbgp("$x");
+        dbgp(applyDepth('$k:'.var_export($k,true),$depth),PURP);
+        $v = self::dec($x,true,$depth);
+        // dbgp("$x");
+        dbgp(applyDepth('$v:'.var_export($v,true),$depth),PURP);
+        dbgp(applyDepth('finished a dict',$depth),PURP);
 
         $result = array_combine($k, $v);
         break;
@@ -304,12 +316,13 @@ class K {
       default:
         throw new Exception("Can't decode this $t yet");
     }
-    dbgp(qtype($t).' acqd: ',GREEN,false);
-    dbgp($result,CYAN,true);
+    dbgp(applyDepth(qtype($t).' acqd: ',$depth),GREEN,false);
+    dbgp(applyDepth(var_export($result,true),$depth),CYAN,true);
     return $result;
   }
 
-  private static function dec($x,$care=false) {
+  private static function dec($x,$care=false,$depth=0) {
+    $depth++;
     // if($care) eval(\Psy\sh());
 
     // if($care) dbgp((string)$x);
@@ -318,7 +331,7 @@ class K {
     // if($care) dbgp((string)$x);
 
     if ($t < 0) {
-      return self::d1(-$t, $x);
+      return self::d1(-$t, $x, $depth);
     }
 
     if ($t == 99 || $t == 98) {
@@ -326,24 +339,27 @@ class K {
       if($care) {
         // eval(\Psy\sh());
       }
-      return self::d1($t, $x);
+      return self::d1($t, $x, $depth);
     }
 
-    $x->r8();
-    // if ($someBytes != 0) {
-    //  eval(\Psy\sh());
-    //  throw new Exception("Protocol error");
-    // }
+    $someBytes = $x->r8();
+    if (!in_array($someBytes, [0,1,2,3])) {
+     // eval(\Psy\sh());
+     throw new Exception("Protocol error");
+    }
 
-    $n = self::d1(6, $x);
+    $n = self::d1(6, $x, $depth);
     if ($t === 10) {
+      dbgp(applyDepth("WHY ARE WE CALLING sn",$depth),RED);
+      dbgp("$x",RED);
       return $x->sn($n);
     }
     $a = array();
     for ($i = 0; $i < $n; ++$i) {
-      $a[] = self::d1($t, $x);
+      $a[] = self::d1($t, $x, $depth);
     }
-    // if($care) eval(\Psy\sh());
+    dbgp("$x");
+    dbgp(applyDepth('WHAT IS THIS: '.var_export($a,true),$depth),RED);
 
     return $a;
   }
