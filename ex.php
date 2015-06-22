@@ -5,7 +5,7 @@ require_once "k.inc";
 $k = new K("localhost", 1234);
 foreach ([
   // 'T',
-	'kT',
+	'([]q:enlist "e";w: enlist "r")',
 	// '() xkey kT',
 ] as $expr) {
 	echo PHP_EOL . $expr . PHP_EOL . "\033[33m=============\033[0m" . PHP_EOL;

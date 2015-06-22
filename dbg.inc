@@ -6,6 +6,7 @@ define('PURP', "\033[35m");
 define('CYAN', "\033[36m");
 define('UNCOLOR', "\033[0m");
 $DP = false;
+function dd() { echo"\n";call_user_func_array('var_dump',func_get_args()); die;}
 function dbgp($m, $color = YALLO,$nl = false) {
   global $DP;
   if (!$DP) return;  
@@ -17,26 +18,26 @@ function qtype($t) {
   $maybeAtom = $t<=19&&$t!=0;
   return [
     0   => 'general list',
-    1   => 'boolean',
-    2   => 'guid',
-    4   => 'byte',
-    5   => 'short',
-    6   => 'int',
-    7   => 'long',
-    8   => 'real',
-    9   => 'float',
-    10  => 'char',
-    11  => 'symbol',
-    12  => 'timestamp',
-    13  => 'month',
-    14  => 'date',
-    15  => 'datetime',
-    16  => 'timespan',
-    17  => 'minute',
-    18  => 'second',
-    19  => 'time',
-    98  => 'table',
-    99  => 'dict',
+    1   => 'boolean',     // 0x01
+    2   => 'guid',        // 0x02
+    4   => 'byte',        // 0x04
+    5   => 'short',       // 0x05
+    6   => 'int',         // 0x06
+    7   => 'long',        // 0x07
+    8   => 'real',        // 0x08
+    9   => 'float',       // 0x09
+    10  => 'char',        // 0x0a
+    11  => 'symbol',      // 0x0b
+    12  => 'timestamp',   // 0x0c
+    13  => 'month',       // 0x0d
+    14  => 'date',        // 0x0e
+    15  => 'datetime',    // 0x0f
+    16  => 'timespan',    // 0x10
+    17  => 'minute',      // 0x11
+    18  => 'second',      // 0x12
+    19  => 'time',        // 0x13
+    98  => 'table',       // 0x62
+    99  => 'dict',        // 0x63
     100 => 'lambda',
     101 => 'unary primitive',
     102 => 'binary primitive',

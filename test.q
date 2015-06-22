@@ -1,3 +1,3 @@
 \p 1234
-T:([]a:enlist 2;b:enlist 3)
-kT:([a:enlist 2];b:enlist 3)
+
+ppSerialized:{0N 4#`$string -8!x}
