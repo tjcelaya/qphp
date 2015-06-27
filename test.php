@@ -13,21 +13,21 @@ class KTest extends PHPUnit_Framework_TestCase {
   private function q($stmt) { return $this->conn->k($stmt); }
 
   public function testAtoms() {
-    $this->assertEquals(25, $this->q('25i'));
-    $this->assertEquals(9, $this->q('9j'));
-    $this->assertEquals('a', $this->q('`a'));
-    $this->assertEquals('z', $this->q('"z"'));
+    // $this->assertEquals(25, $this->q('25i'));
+    // $this->assertEquals(9, $this->q('9j'));
+    global $DP; $DP = true;
+    $this->assertEquals('A', $this->q('`A'));
+    // $this->assertEquals('z', $this->q('"z"'));
   }
   public function testTemporal() {
     $this->markTestSkipped();
     $this->assertEquals('a', $this->q('2015.6.26'));
   }
   public function testLists() {
-    // $this->markTestSkipped();
-    global $DP; $DP = true;
+    $this->markTestSkipped();
     $this->assertEquals(['Z'], $this->q('enlist `Z'));
-    // $this->assertEquals(['Z'], $this->q('enlist "Z"'));
-    // $this->assertEquals('abc', $this->q('"abc"'));
+    $this->assertEquals(['Z'], $this->q('enlist "Z"'));
+    $this->assertEquals('abc', $this->q('"abc"'));
     // $this->assertEquals([1,2,3], $this->q('1 2 3'));
     // $this->assertEquals([[1,2,3]], $this->q('enlist 1 2 3'));
     // $this->assertEquals([1,2,3,'a','b'], $this->q('1 2 3,`a`b'));

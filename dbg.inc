@@ -10,12 +10,11 @@ function dd() { echo"\n";call_user_func_array('var_dump',func_get_args()); die;}
 function dbgp($m, $color = YALLO,$nl = false) {
   global $DP;
   if (!$DP) return;  
-  if ($m instanceof KScan === false &&
-      is_array($m) || is_object($m) || is_bool($m))
+  if ($m instanceof KScan === false && !is_string($m))
     $m = var_export($m, true);
   echo PHP_EOL . $color . $m . UNCOLOR . ($nl?PHP_EOL:'');}
 function qtype($t) {
-  $maybeAtom = $t<=19&&$t!=0;
+  $maybeAtom = $t<=0;
   return [
     0   => 'general list',
     1   => 'boolean',     // 0x01
@@ -51,7 +50,7 @@ function qtype($t) {
     110 => 'f/:',
     111 => 'f\:',
     112 => 'dynamic load',
-  ][$t].' '.($maybeAtom?'(atom)':'');
+  ][$maybeAtom?-$t:$t].' ('.($maybeAtom?'atom':'list').')';
 }
 function applyDepth($str, $depth) {
     return implode("\n",array_map(function($s)use($depth){return str_repeat('    ', $depth).$s;},explode("\n", $str)));
