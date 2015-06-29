@@ -167,5 +167,104 @@ class KTest extends PHPUnit_Framework_TestCase {
         ]
       ],
       $this->q('flip `a`b!(enlist `x`y!1,enlist 2 3 4;enlist`q`w!3 4)'));
+    $this->assertEquals(
+      // test passes, but is it correct?
+      // x| (+`m`n!(8 9;3 4);12)
+      // y| `m`n!(1;2 3)
+      [
+        "x" => [
+            [
+                [
+                    "m" => 8,
+                    "n" => 3
+                ],
+                [
+                    "m" => 9,
+                    "n" => 4
+                ]
+            ],
+            12
+        ],
+        "y" => [
+            "m" => 1,
+            "n" => [
+                2,
+                3
+            ]
+        ]
+    ],
+      $this->q('`x`y!(((flip `m`n!(8 9;3 4));12);`m`n!(enlist 1),(enlist 2 3))'));
+    $this->assertEquals(
+    //  | m n
+    // -| ---
+    // x| 8 9
+      [
+           "x" => [
+              "m" => 8,
+              "n" => 9
+          ]
+      ],
+      $this->q('(enlist `x)!(enlist `m`n!8 9)'));
+    $this->assertEquals(
+      // how should we handle duplicate keys?
+      [
+          "x" => [
+            [
+              "m" => 88,
+              "n" => 99
+            ]
+          ]
+      ],
+      $this->q('`x`x!(enlist `m`n!8 9;enlist `m`n!88 99)'));
+    $this->assertEquals(
+      [
+            ["a"=>"A","b"=>"B","c"=>"C","d"=>"D","e"=>"E"],
+            ["a"=>"B","b"=>"C","c"=>"D","d"=>"E","e"=>"A"],
+            ["a"=>"C","b"=>"D","c"=>"E","d"=>"A","e"=>"B"],
+            ["a"=>"D","b"=>"E","c"=>"A","d"=>"B","e"=>"C"],
+            ["a"=>"E","b"=>"A","c"=>"B","d"=>"C","e"=>"D"]
+        ],
+      $this->q('flip `a`b`c`d`e!(til 5) rotate\: `char$(`int$"A")+til 5'));
+    $this->assertEquals(
+      [
+        "a" => [],
+        "b" => [
+           ["A","B","C","D","E"]
+        ],
+        "c" => [
+           ["A","B","C","D","E"],
+           ["B","C","D","E","A"]
+        ],
+        "d" => [
+           ["A","B","C","D","E"],
+           ["B","C","D","E","A"],
+           ["C","D","E","A","B"]
+        ],
+        "e" => [
+           ["A","B","C","D","E"],
+           ["B","C","D","E","A"],
+           ["C","D","E","A","B"],
+           ["D","E","A","B","C"]
+        ]
+      ],
+      $this->q('`a`b`c`d`e!(til 5) #\: (til 5) rotate\: `char$(`int$"A")+til 5'));
+
+    // things we can't handle yet
+    // `x`y!(`m`n!8 9;`m`n!(enlist 1),(enlist 2 3))
+    //  | m n
+    // -| -----
+    // x| 8 9
+    // y| 1 2 3
+    //
+    // (enlist `x`x)!((enlist `m`n!8 9))
+    //    | m n
+    // ---| ---
+    // x x| 8 9
+
+
+  }
+  public function testErrors() {
+    $this->setExpectedException('KException');
+    $this->q('`m`n!1,2 3');
   }
 }

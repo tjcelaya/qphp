@@ -37,7 +37,7 @@ class K {
   public static function q($s) {
     return (new static )->k($s);
   }
-  public function ks($s) {                                                     dbgp('ks called', UNCOLOR);
+  public function ks($s) {                                                      dbgp('ks called', UNCOLOR);
     if (func_num_args() === 1) {
       $x = self::enc(0, $s);
     } else {
@@ -46,18 +46,18 @@ class K {
     fwrite($this->h, $x);
   }
 
-  public function k($s) {                                                      dbgp("k called: $s", UNCOLOR);
+  public function k($s) {                                                       dbgp("k called: $s", UNCOLOR);
     if (func_num_args() === 1) {
       $x = self::enc(1, $s);
     } else {
       $x = self::enc(1, func_get_args());
     }
-    //                                                                         dbgp($x);
+    //                                                                          dbgp($x);
     fwrite($this->h, $x);
     return $this->kr($s);
   }
 
-  public function ka($s) {                                                     dbgp('ka called', UNCOLOR);
+  public function ka($s) {                                                      dbgp('ka called', UNCOLOR);
     if (func_num_args() === 1) {
       $x = self::enc(1, $s);
     } else {
@@ -66,7 +66,7 @@ class K {
     fwrite($this->h, $x);
   }
 
-  public function kr($req = '') {                                              dbgp('kr called', UNCOLOR);
+  public function kr($req = '') {                                               dbgp('kr called', UNCOLOR);
     $a = unpack("l2", fread($this->h, 8));
     $scanner = new KScan(fread($this->h, $a[2] - 8), $req);
     return $this->dec($scanner);
@@ -184,7 +184,8 @@ class K {
   // }
 
   private function d1($x, $t, $depth = 0) {
-    $depth++;                                                                  dbgp(applyDepth("START d1: " . qtype(-$t), $depth), PURP);
+      echo ($this->dt?'DT':'');
+    $depth++;                                                                   dbgp(applyDepth("START d1: " . qtype(-$t), $depth), PURP);
     $result = null;
     switch ($t) {
       case 0:
@@ -216,14 +217,14 @@ class K {
       case 9:
         $result = $x->rn("d", 8);
         break;
-      case 10:                                                                 dbgp('read a char?');
+      case 10:                                                                  dbgp('read a char?');
         $result = $x->sn(1);
         break;
       case 11:
-        $s = "";                                                               dbgp("get a sym ", RED);
+        $s = "";                                                                dbgp("get a sym ", RED);
         // while (!in_array($c = trim($x->sn(1,true)), ["\0", false])) {          dbgp("read a sym $c", RED);
-        while ($c = trim($x->sn(1,true))) {                                    dbgp("read a sym $c", RED);
-          $s .= $c;                                                            dbgp('$s so far ' . bin2hex($s), RED);
+        while ($c = trim($x->sn(1,true))) {                                     dbgp("read a sym $c", RED);
+          $s .= $c;                                                             dbgp('$s so far ' . bin2hex($s), RED);
         }
         $result = $s;
         break;
@@ -238,16 +239,19 @@ class K {
         throw new KException($this->d1($x,11));
       default:
         throw new Exception("Can't decode this $t yet");
-    }                                                                          dbgp(applyDepth(qtype(-$t) . ' acqd: ', $depth), GREEN, false);dbgp(applyDepth(var_export($result, true), $depth), CYAN, true);
+    }                                                                           dbgp(applyDepth(qtype(-$t) . ' acqd: ', $depth), GREEN, false);dbgp(applyDepth(var_export($result, true), $depth), CYAN, true);
     return $result;
   }
 
   private function dec($x, $cxt = false, $depth = 0) {
-    $depth++;                                                                  dbgp(applyDepth("START dec: ", $depth), PURP);
+    $depth++;                                                                   dbgp(applyDepth("START dec: ", $depth), PURP);
+
     // read the type
-    $t = $x->rn('c',1);                                                        dbgp(applyDepth("t: ".qtype($t), $depth), PURP);
+    $t = $x->rn('c',1);
+    if($t===-128) throw new KException($this->d1($x,11));
+                                                                                dbgp(applyDepth("t: ".qtype($t), $depth), PURP);
     // handle atoms with d1
-    if ($t < 0) {                                                              dbgp(applyDepth("getting a (single?) " . qtype($t), $depth), RED);
+    if ($t < 0) {                                                               dbgp(applyDepth("getting a (single?) " . qtype($t), $depth), RED);
       return $this->d1($x, -$t, $depth);
     }
     if ($t == 99 || $t == 127) {
@@ -263,11 +267,11 @@ class K {
       }
       return array_combine($keys, $vals);
     } elseif ($t == 98) {
-      $attrs = $x->rn('c',1);                                                  dbgp(applyDepth('throwing away table attrs',$depth), UNCOLOR);
-      $dictType = $x->rn('c',1);                                               dbgp(applyDepth('dicts are tables, we get it',$depth), UNCOLOR);
+      $attrs = $x->rn('c',1);                                                   dbgp(applyDepth('throwing away table attrs',$depth), UNCOLOR);
+      $dictType = $x->rn('c',1);                                                dbgp(applyDepth('dicts are tables, we get it',$depth), UNCOLOR);
       if ($dictType!==99) throw new Error('what');
       // get a list of syms for cols
-                                                  dbgp(applyDepth('start cols',$depth),UNCOLOR);
+                                                        dbgp(applyDepth('start cols',$depth),UNCOLOR);
       $cols = $this->dec($x,$cxt?:self::DICT,$depth);   dbgp(applyDepth('FINISH cols, start rows',$depth),UNCOLOR);
       $rows = $this->dec($x,$cxt?:self::DICT,$depth);   dbgp(applyDepth('FINISH rows',$depth),UNCOLOR);
       $colTable = array_combine($cols, $rows);
@@ -289,7 +293,7 @@ class K {
     while ($len--) {$l[] = $this->$decFn($x, $t?:false, $depth);}
     return $l;
 
-    if ($t == 10) {                                                            dbgp(applyDepth('MAKE MA BITCHES IMPLODE',$depth),UNCOLOR);
+    if ($t == 10 && $this->collapseCharLists) {                           dbgp(applyDepth('MAKE MA STRINGS IMPLODE',$depth),UNCOLOR);
       // return implode('', $l);
     }
     return $l;
