@@ -25,7 +25,10 @@ class KTest extends PHPUnit_Framework_TestCase {
   }
   public function testTemporal($skip=false) {
     if($skip)$this->markTestSkipped();
-    $this->assertEquals(1435276800, $this->q('2015.06.26'));
+    $this->assertEquals($this->q('2015.06.26'),1435276800);
+    // $this->assertEquals(
+    //   new DateTime('2015-06-26'),
+    //   (new K('localhost',1234,'',['dt'=>true]))->q('2015.06.26'));
   }
   public function testLists($skip=false) {
     if($skip)$this->markTestSkipped();
@@ -155,5 +158,14 @@ class KTest extends PHPUnit_Framework_TestCase {
         ['a'=>3,'b'=>4],
       ], $this->q('([a:1 3]b:2 4)'));
   }
-
+  public function testThingsWithWeirdStructure() {
+    $this->assertEquals(
+      [
+        [
+          'a'=>['x'=>1,'y'=>[2,3,4]],
+          'b'=>['q'=>3,'w'=>4],
+        ]
+      ],
+      $this->q('flip `a`b!(enlist `x`y!1,enlist 2 3 4;enlist`q`w!3 4)'));
+  }
 }
