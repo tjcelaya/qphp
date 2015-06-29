@@ -6,6 +6,7 @@ define('PURP', "\033[35m");
 define('CYAN', "\033[36m");
 define('UNCOLOR', "\033[0m");
 $DP = false;
+function b2h() { return call_user_func_array('bin2hex',func_get_args());}
 function dd() { echo"\n";call_user_func_array('var_dump',func_get_args()); die;}
 function dbgp($m, $color = YALLO,$nl = false) {
   global $DP;
@@ -14,7 +15,7 @@ function dbgp($m, $color = YALLO,$nl = false) {
     $m = var_export($m, true);
   echo PHP_EOL . $color . $m . UNCOLOR . ($nl?PHP_EOL:'');}
 function qtype($t) {
-  $maybeAtom = $t<=0;
+  $maybeAtom = $t<0;
   return [
     0   => 'general list',
     1   => 'boolean',     // 0x01
@@ -35,8 +36,12 @@ function qtype($t) {
     17  => 'minute',      // 0x11
     18  => 'second',      // 0x12
     19  => 'time',        // 0x13
+
     98  => 'table',       // 0x62
+
     99  => 'dict',        // 0x63
+    127 => 'sorted dict', // 0x7f
+
     100 => 'lambda',
     101 => 'unary primitive',
     102 => 'binary primitive',

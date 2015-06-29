@@ -1,414 +1,305 @@
 <?php
 require_once 'dbg.inc';
-error_reporting(-1);
-class KException extends Exception {};
-class KScan {
-	public $s, $i, $n, $req;
-	public function __toString() {
-		return $this->req . PHP_EOL .
-		'`' . chunk_split(bin2hex($this->s), 2, '`') . PHP_EOL .
-		str_repeat(' ', ($this->i * 3))
-		. '^' . PHP_EOL .
-		$this->i . ' / ' . $this->n;
-	}
-	public function __construct($s, $req = '') {
-		dbgp('__construct called', UNCOLOR);
-		global $scanner;
-		dbgp("$scanner");
-		$this->s = $s;
-		$this->i = 0;
-		$this->n = strlen($s) - 0;
-		$this->req = $req;
-	}
-	public function r1($log = false) {
-		dbgp('r1 called', UNCOLOR);
-		global $scanner;
-		dbgp("$scanner");
-		$tmp = $this->rn('c', 1);
-		dbgp($tmp, RED);
-		global $scanner;
-		dbgp("$scanner");
-		return $tmp;
-	}
-	public function rn($s, $n) {
-		dbgp('rn called s:' . bin2hex($s) . " n:$n", UNCOLOR);
-		global $scanner;
-		dbgp("$scanner");
-		$a = unpack($s, $this->sn($n));
-		return reset($a);
-	}
-	public function s1($stopOnZero) {
-		dbgp('s1 called with sOZ:' . var_export($stopOnZero, true), UNCOLOR);
-		return $this->sn(1, $stopOnZero);
-	}
-	public function sn($n, $stopOnZero = false) {
-		dbgp("sn called n: $n", UNCOLOR);
-		global $scanner;
-		dbgp("$scanner",CYAN);
-		dbgp('early return sn? ' .
-			var_export($this->i >= $this->n || ($stopOnZero && $this->s{$this->i} === "\0"), true)
-			// .' $this->i >= $this->n '.var_export($this->i >= $this->n,true)
-			// .' sOZ? '.var_export($stopOnZero,true)
-			// .' cur? '.bin2hex($this->s{$this->i})
-			// .' $this->s{$this->i} === "\0" ?'.var_export($this->s{$this->i} === "\0",true)
-			, CYAN);
+require_once 'kscan.inc';
 
-		if ($this->i >= $this->n || ($stopOnZero && $this->s{$this->i} === "\0")) {
-			return false;
-		}
-
-		global $scanner;
-		dbgp("pre:\n$scanner");
-		$i = $this->i;
-		$this->i += $n;
-
-		global $scanner;
-		dbgp("post:\n$scanner");
-
-		// dbgp('SOME KIND OF sn? '.bin2hex(substr($this->s, $i, $this->n - $i)),CYAN);
-		return substr($this->s, $i, $this->n - $i);
-	}
-}
 class K {
-	private static $be = -1;
-	private $h;
+  const DICT = 9;
+  const TABLE = 8;
+  private static $be = -1;
+  private static $bigint = true;
 
-	private static function init() {
-		if (self::$be === -1) {
-			self::$be = (pack("N", -69) === pack("l", -69));
-		}
-	}
+  private $h;
+  private $collapseCharLists=false;
+  private $datetime=false;
 
-	public function __construct($h = "localhost", $p = 1234, $up = "anonymous") {
-		dbgp('__construct called', UNCOLOR);
-		global $scanner;
-		dbgp("$scanner");
-		self::init();
+  private static function init() {
+    if (self::$be === -1) {
+      self::$be = (pack("N", -69) === pack("l", -69));
+      try { pack('q',1); } catch (\Exception $e) {$bigint=false;}
+    }
+  }
 
-		$this->h = fsockopen($h, $p);
-		fwrite($this->h, $up . pack("cc", 1, 0));
-		if (ord(fgetc($this->h)) != 1) {
-			throw new Exception("Can't connect to k: $h:$p");
-		}
-	}
-	function __destruct() {
-		fclose($this->h);
-	}
-	public static function q($s) {
-		return (new static )->k($s);
-	}
-	public function ks($s) {
-		dbgp('ks called', UNCOLOR);
-		global $scanner;
-		dbgp("$scanner");
-		if (func_num_args() === 1) {
-			$x = self::enc(0, $s);
-		} else {
-			$x = self::enc(0, func_get_args());
-		}
-		fwrite($this->h, $x);
-	}
+  public function __construct($h = "localhost", $p = 1234, $up = "anonymous", $opts=[]) {
+    dbgp('__construct called', UNCOLOR);
+    self::init();
 
-	public function k($s) {
-		dbgp("k called: $s", UNCOLOR);
-		global $scanner;
-		dbgp("$scanner");
-		if (func_num_args() === 1) {
-			$x = self::enc(1, $s);
-		} else {
-			$x = self::enc(1, func_get_args());
-		}
-		// dbgp($x);
-		fwrite($this->h, $x);
-		return $this->kr($s);
-	}
+    $this->h = fsockopen($h, $p);
+    fwrite($this->h, $up . pack("cc", 1, 0));
+    if (ord(fgetc($this->h)) != 1) {
+      throw new Exception("Can't connect to k: $h:$p");
+    }
+  }
+  function __destruct() {
+    fclose($this->h);
+  }
+  public static function q($s) {
+    return (new static )->k($s);
+  }
+  public function ks($s) {                                                     dbgp('ks called', UNCOLOR);
+    if (func_num_args() === 1) {
+      $x = self::enc(0, $s);
+    } else {
+      $x = self::enc(0, func_get_args());
+    }
+    fwrite($this->h, $x);
+  }
 
-	public function ka($s) {
-		dbgp('ka called', UNCOLOR);
-		global $scanner;
-		dbgp("$scanner");
-		if (func_num_args() === 1) {
-			$x = self::enc(1, $s);
-		} else {
-			$x = self::enc(1, func_get_args());
-		}
-		fwrite($this->h, $x);
-	}
+  public function k($s) {                                                      dbgp("k called: $s", UNCOLOR);
+    if (func_num_args() === 1) {
+      $x = self::enc(1, $s);
+    } else {
+      $x = self::enc(1, func_get_args());
+    }
+    //                                                                         dbgp($x);
+    fwrite($this->h, $x);
+    return $this->kr($s);
+  }
 
-	public function kr($req = '') {
-		dbgp('kr called', UNCOLOR);
-		global $scanner;
-		dbgp("$scanner");
-		$a = unpack("l2", fread($this->h, 8));
-		$scanner = new KScan(fread($this->h, $a[2] - 8), $req);
-		return self::dec($scanner);
-	}
+  public function ka($s) {                                                     dbgp('ka called', UNCOLOR);
+    if (func_num_args() === 1) {
+      $x = self::enc(1, $s);
+    } else {
+      $x = self::enc(1, func_get_args());
+    }
+    fwrite($this->h, $x);
+  }
 
-	public static function S($x) {
-		$s = pack("c", -11) . $x . pack("c", 0);
-		return (object) array("s" => $s);
-	}
+  public function kr($req = '') {                                              dbgp('kr called', UNCOLOR);
+    $a = unpack("l2", fread($this->h, 8));
+    $scanner = new KScan(fread($this->h, $a[2] - 8), $req);
+    return self::dec($scanner);
+  }
 
-	public static function G($x = null) {
-		if ($x === null) {
-			if (function_exists('openssl_random_pseudo_bytes')) {
-				$x = openssl_random_pseudo_bytes(16);
-			} else {
-				$x = "";
-				for ($i = 0; $i < 16; ++$i) {
-					$x .= chr(mt_rand(0, 255));
-				}
-			}
-		} else {
-			$x = hex2bin(str_replace("-", "", $x));
-		}
-		return (object) array("s" => pack("c", -2) . $x);
-	}
+  public static function S($x) {
+    $s = pack("c", -11) . $x . pack("c", 0);
+    return (object) array("s" => $s);
+  }
 
-	private static function aa($x) {
-		$n = min(100, count($x));
-		for ($i = 0; $i < $n; ++$i) {
-			if (!isset($x[$i])) {
-				return true;
-			}
-		}
-		return false;
-	}
+  public static function G($x = null) {
+    if ($x === null) {
+      if (function_exists('openssl_random_pseudo_bytes')) {
+        $x = openssl_random_pseudo_bytes(16);
+      } else {
+        $x = "";
+        for ($i = 0; $i < 16; ++$i) {
+          $x .= chr(mt_rand(0, 255));
+        }
+      }
+    } else {
+      $x = hex2bin(str_replace("-", "", $x));
+    }
+    return (object) array("s" => pack("c", -2) . $x);
+  }
 
-	private static function e1($x) {
-		if (is_null($x)) {
-			return pack("cc", 101, 0);
-		}
-		if ($x === true) {
-			return pack("cc", -1, 1);
-		}
-		if ($x === false) {
-			return pack("cc", -1, 0);
-		}
-		if (is_string($x)) {
-			return pack("ccl", 10, 0, strlen($x)) . $x;
-		}
-		if (is_integer($x)) {
-			return pack("cl", -6, $x);
-		}
-		if (is_float($x)) {
-			return pack("cd", -9, $x);
-		}
-		if (is_object($x)) {
-			return $x->s;
-		}
-		if (!is_array($x)) {
-			throw new Exception("Can't encode this: " . var_export($x));
-		}
-		$a = "";
-		if (self::aa($x)) {
-			//associative array->dict
-			$n = count($x);
-			$a = pack("cccl", 99, 0, 0, $n);
-			$v = array();
-			foreach ($x as $k => $_) {
-				$a .= pack("c", -11) . $k . pack("c", 0);
-				$v[] = $_;
-			}
-			$x = $v; //fall through
-		}
-		$a .= pack("ccl", 0, 0, count($x));
-		foreach ($x as $b) {
-			$a .= self::e1($b);
-		}
-		return $a;
-	}
+  private static function aa($x) {
+    $n = min(100, count($x));
+    for ($i = 0; $i < $n; ++$i) {
+      if (!isset($x[$i])) {
+        return true;
+      }
+    }
+    return false;
+  }
 
-	private static function enc($b, $x) {
-		$x = self::e1($x);
-		return pack("ccccl", !self::$be, $b, 0, 0, 8 + strlen($x)) . $x;
-	}
+  private static function e1($x) {
+    if (is_null($x)) {
+      return pack("cc", 101, 0);
+    }
+    if ($x === true) {
+      return pack("cc", -1, 1);
+    }
+    if ($x === false) {
+      return pack("cc", -1, 0);
+    }
+    if (is_string($x)) {
+      return pack("ccl", 10, 0, strlen($x)) . $x;
+    }
+    if (is_integer($x)) {
+      return pack("cl", -6, $x);
+    }
+    if (is_float($x)) {
+      return pack("cd", -9, $x);
+    }
+    if (is_object($x)) {
+      return $x->s;
+    }
+    if (!is_array($x)) {
+      throw new Exception("Can't encode this: " . var_export($x));
+    }
+    $a = "";
+    if (self::aa($x)) {
+      //associative array->dict
+      $n = count($x);
+      $a = pack("cccl", 99, 0, 0, $n);
+      $v = array();
+      foreach ($x as $k => $_) {
+        $a .= pack("c", -11) . $k . pack("c", 0);
+        $v[] = $_;
+      }
+      $x = $v; //fall through
+    }
+    $a .= pack("ccl", 0, 0, count($x));
+    foreach ($x as $b) {
+      $a .= self::e1($b);
+    }
+    return $a;
+  }
 
-	private static function flip(&$c, &$x) {
-		if (!is_array($x)) {
-			return;
-		}
+  private static function enc($b, $x) {
+    $x = self::e1($x);
+    return pack("ccccl", !self::$be, $b, 0, 0, 8 + strlen($x)) . $x;
+  }
 
-		foreach ($x as $k => &$a) {
-			if (is_array($a)) {
-				foreach ($a as $i => &$v) {
-					$c[$i][$k] = $v;
-				}
-			}
-		}
+  private static function flip(&$c, &$x) {
+    if (!is_array($x)) {
+      return;
+    }
 
-		foreach ($x as $k => &$v) {
-			if (!is_array($v)) {
-				foreach ($c as $i => &$_) {
-					$c[$i][$k] = $v;
-				}
-			}
-		}
+    foreach ($x as $k => &$a) {
+      if (is_array($a)) {
+        foreach ($a as $i => &$v) {
+          $c[$i][$k] = $v;
+        }
+      }
+    }
 
-	}
+    foreach ($x as $k => &$v) {
+      if (!is_array($v)) {
+        foreach ($c as $i => &$_) {
+          $c[$i][$k] = $v;
+        }
+      }
+    }
 
-	// private static function om(&$c) {
-	//   $o = array();
-	//   foreach ($c as $i => &$x) {
-	//     $o[$i] = (object) $x;
-	//   }
-	//   return $o;
-	// }
+  }
 
-	private static function d1($t, $x, $depth = 0) {
-		$depth++;
-		dbgp(applyDepth("START d1: " . qtype(-$t), $depth), PURP);
-		$result = null;
-		switch ($t) {
-			case 0:
-				throw new KException('glist');
-				$result = self::dec($t, $x);
-			case 1:
-				$result = 1 == $x->r1();
-				break;
-			case 4:
-				$result = $x->r1();
-				break;
-			case 5:
-				$result = $x->rn("s", 2);
-				break;
-			case 6:
-				$result = $x->rn("l", 4);
-				break;
-			case 7:
-				$a = $x->rn("l", 4);
-				// if ($a[2] == -1 && $a[1] < 0) {
-				//   $result = $a[1];
-				//   break;
-				// }
-				$result = $a;
-				break;
-			case 8:
-				$result = $x->rn("f", 4);
-				break;
-			case 9:
-				$result = $x->rn("d", 8);
-				break;
-			case 10:
-				$result = $x->s1();
-				break;
-			case 11:
-				$s = "";
-				dbgp("get a sym ", RED);
-				while (!in_array($c = $x->s1(true), ["\0", false])) {
-					dbgp("read a sym $c", RED);
-					$s .= $c;
-					dbgp('$s so far ' . bin2hex($s), RED);
-				}
-				$result = $s;
-				break;
-			case 14:
-				$result = 86400 * (10957 + $x->rn("l", 4));
-				break;
-			case 101:
-				$result = null;
-				break;
-			case 128:
-				throw new KException(self::d1(11, $x));
-			default:
-				throw new Exception("Can't decode this $t yet");
-		}
-		dbgp(applyDepth(qtype($t) . ' acqd: ', $depth), GREEN, false);
-		dbgp(applyDepth(var_export($result, true), $depth), CYAN, true);
-		return $result;
-	}
+  // private static function om(&$c) {
+  //   $o = array();
+  //   foreach ($c as $i => &$x) {
+  //     $o[$i] = (object) $x;
+  //   }
+  //   return $o;
+  // }
 
-	private static function dec($x, $care = false, $depth = 0) {
-		$depth++;
-		$t = $x->r1();
-		dbgp(applyDepth("START dec: " . qtype($t), $depth), PURP);
+  private static function d1($x, $t, $depth = 0) {
+    $depth++;                                                                  dbgp(applyDepth("START d1: " . qtype(-$t), $depth), PURP);
+    $result = null;
+    switch ($t) {
+      case 0:
+        throw new KException('glist');
+        $result = self::dec($x);
+      case 1:
+        $result = 1 == $x->r1();
+        break;
+      case 4:
+        $result = $x->r1();
+        break;
+      case 5:
+        $result = $x->rn("s", 2);
+        break;
+      case 6:
+        $result = $x->rn("l", 4);
+        break;
+      case 7:
+        $a = $x->rn("q", 8);
+        // if ($a[2] == -1 && $a[1] < 0) {
+        //   $result = $a[1];
+        //   break;
+        // }
+        $result = $a;
+        break;
+      case 8:
+        $result = $x->rn("f", 4);
+        break;
+      case 9:
+        $result = $x->rn("d", 8);
+        break;
+      case 10:                                                                 dbgp('read a char?');
+        $result = $x->sn(1);
+        break;
+      case 11:
+        $s = "";                                                               dbgp("get a sym ", RED);
+        // while (!in_array($c = trim($x->sn(1,true)), ["\0", false])) {          dbgp("read a sym $c", RED);
+        while ($c = trim($x->sn(1,true))) {                                    dbgp("read a sym $c", RED);
+          $s .= $c;                                                            dbgp('$s so far ' . bin2hex($s), RED);
+        }
+        $result = $s;
+        break;
+      case 14:
+        $result = 86400 * (10957 + $x->rn("l", 4));
+        break;
+      case 101:
+        $result = null;
+        break;
+      case 128:
+        throw new KException(self::d1($x,11));
+      default:
+        throw new Exception("Can't decode this $t yet");
+    }                                                                          dbgp(applyDepth(qtype(-$t) . ' acqd: ', $depth), GREEN, false);dbgp(applyDepth(var_export($result, true), $depth), CYAN, true);
+    return $result;
+  }
 
-		if ($t < 0) {
-			dbgp(applyDepth("getting a (single?) " . qtype($t), $depth), RED);
-			return self::d1(-$t, $x, $depth);
-		}
+  private static function dec($x, $cxt = false, $depth = 0) {
+    $depth++;                                                                  dbgp(applyDepth("START dec: ", $depth), PURP);
+    // read the type
+    $t = $x->rn('c',1);                                                        dbgp(applyDepth("t: ".qtype($t), $depth), PURP);
+    // handle atoms with d1
+    if ($t < 0) {                                                              dbgp(applyDepth("getting a (single?) " . qtype($t), $depth), RED);
+      return self::d1($x, -$t, $depth);
+    }
+    if ($t == 99 || $t == 127) {
+      $keys = self::dec($x,$cxt?:self::DICT,$depth);
+      $vals = self::dec($x,$cxt?:self::DICT,$depth);
+      if(is_array(reset($keys)) && is_array(reset($vals))){
+        // in a keyed table
+        $kT=[];
+        for ($rows=count($keys); 0<$rows; $rows--) { 
+          $kT[]=array_merge(array_shift($keys),array_shift($vals));
+        }
+        return $kT;
+      }
+      return array_combine($keys, $vals);
+    } elseif ($t == 98) {
+      $attrs = $x->rn('c',1);                                                  dbgp(applyDepth('throwing away table attrs',$depth), UNCOLOR);
+      $dictType = $x->rn('c',1);                                               dbgp(applyDepth('dicts are tables, we get it',$depth), UNCOLOR);
+      if ($dictType!==99) throw new Error('what');
+      // get a list of syms for cols
+                                                  dbgp(applyDepth('start cols',$depth),UNCOLOR);
+      $cols = self::dec($x,$cxt?:self::DICT,$depth);   dbgp(applyDepth('FINISH cols, start rows',$depth),UNCOLOR);
+      $rows = self::dec($x,$cxt?:self::DICT,$depth);   dbgp(applyDepth('FINISH rows',$depth),UNCOLOR);
+      $colTable = array_combine($cols, $rows);
+      return self::transpose($colTable);
+      // return $cxt?$colTable:self::transpose($colTable);
+    }
 
-		if ($t == 99 || $t == 98) {
-			throw new KException('no 98|99 yet');
-			// case 98:
-			//   dbgp(applyDepth(' ------- start a '.strtoupper(qtype($t)).' -------',$depth),RED);
-			//   dbgp(applyDepth("TABLE S1",$depth),YALLO);
-			//   $x->s1();
-			//   dbgp(applyDepth("START TABLE KEYS",$depth),YALLO);
-			//   $k = self::dec($x,false,$depth);
-			//   dbgp(applyDepth("END   TABLE KEYS",$depth),YALLO);
-			//   // dbgp(applyDepth('$k:'.var_export($k,true),$depth),UNCOLOR);
-			//   dbgp(applyDepth("START TABLE VALS",$depth),YALLO);
-			//   $v = self::dec($x,false,$depth);
-			//   dbgp(applyDepth("END   TABLE VALS",$depth),YALLO);
-			//   // dbgp(applyDepth('$v:'.var_export($v,true),$depth),UNCOLOR);
-			//   $c = array();
-			//   self::flip($c, $k);
-			//   self::flip($c, $v);
-			//   $result = $c;
-			//   dbgp(applyDepth(' ------- finished a table -------',$depth),RED);
-			//   break;
-			// case 99:
-			//   dbgp(applyDepth(' ------- start a '.strtoupper(qtype($t)).' -------',$depth),RED);
-			//   dbgp(applyDepth("START DICT KEYS",$depth),YALLO);
-			//   dbgp("$x");
-			//   $k = self::dec($x,true,$depth);
-			//   dbgp("$x");
-			//   dbgp(applyDepth("END   DICT KEYS",$depth),YALLO);
-			//   dbgp(applyDepth("START DICT VALS",$depth),YALLO);
-			//   dbgp("$x");
-			//   $v = self::dec($x,true,$depth);
-			//   dbgp("$x");
-			//   dbgp(applyDepth("END   DICT VALS",$depth),YALLO);
-			//   // dbgp(applyDepth('$v:'.var_export($v,true),$depth),RED);
-			//   dbgp(applyDepth(' ------- finished a dict -------',$depth),RED);
+    return self::decn($x,$t,$depth);
+  }
 
-			//   $result = array_combine($k, $v);
-			//   break;
+  private static function decn($x,$t=0,$depth=0) {
+    $depth++;                                                                  dbgp(applyDepth("decn for a " . qtype($t), $depth), RED);
+    $attrs = $x->rn('c',1);                                                    dbgp(applyDepth('throwing away list attrs',$depth), UNCOLOR);
+    $len = $x->rn('l', 4);                                                     dbgp(applyDepth("getting $len things", $depth), RED);
 
-			//   return self::d1($t, $x, $depth);
-		}
+    $l=[];
+    $decFn = $t==0?'dec':'d1';
 
-		if ($t === 0) {
-			dbgp("WE GOT a " . qtype($t) . " IN HERE");
+    while ($len--) {$l[] = self::$decFn($x, $t?:false, $depth);}
+    return $l;
 
-			dd($len);
-		}
+    if ($t == 10) {                                                            dbgp(applyDepth('MAKE MA BITCHES IMPLODE',$depth),UNCOLOR);
+      // return implode('', $l);
+    }
+    return $l;
+  }
 
-		dbgp(applyDepth("calling d1 for a " . qtype($t), $depth), RED);
-		$attrs = $x->r1();
-		$len = $x->rn('l', 4);
-		dbgp(applyDepth("getting $len things", $depth), RED);
+  private static function transpose($arr) {
+    $out = array();
+    foreach ($arr as $key => $subarr) {
+      foreach ($subarr as $subkey => $subvalue) {
+        $out[$subkey][$key] = $subvalue;
+      }
+    }
+    return $out;
+  }
 
-		if ($t === 10) {
-			dbgp("$x", RED);
-			return $x->sn($len);
-		}
-
-		$l = [];
-		while ($len--) {$l[] = self::d1($t, $x, $depth);}
-
-		if ($t == 10) {
-			return $l;
-		}
-
-		// dbgp(applyDepth("READING ATTRS?: ".bin2hex($someBytes),$depth),RED);
-		// fwrite(STDERR, applyDepth("READING ATTRS?: ",$depth));
-		$someBytes = $x->r1();
-		dbgp(applyDepth("READ ATTRS?: " . $someBytes, $depth), RED);
-		if (!in_array($someBytes, [0, 1, 2, 3])) {
-			// eval(\Psy\sh());
-			throw new Exception("Protocol error");
-		}
-
-		$n = self::d1(6, $x, $depth);
-		$a = array();
-		for ($i = 0; $i < $n; ++$i) {
-			$a[] = self::d1($t, $x, $depth);
-		}
-		// dbgp("$x");
-		// dbgp(applyDepth('WHAT IS THIS: '.var_export($a,true),$depth),RED);
-
-		return $a;
-	}
 }

@@ -7,67 +7,94 @@ class KTest extends PHPUnit_Framework_TestCase {
   private $conn = null;
 
   public function setUp(){
-    $this->conn = $k = new K("localhost", 1234); }
+    $this->conn = $k = new K("localhost", 1234, 'anon', ['datetime'=>true]); }
   public function tearDown(){ }
 
   private function q($stmt) { return $this->conn->k($stmt); }
+  private function simpleTests($arr) {foreach ($arr as $req => $res) {
+    $this->assertEquals($this->q($req),$res);}}
 
-  public function testAtoms() {
-    // $this->assertEquals(25, $this->q('25i'));
-    // $this->assertEquals(9, $this->q('9j'));
-    global $DP; $DP = true;
-    $this->assertEquals('A', $this->q('`A'));
-    // $this->assertEquals('z', $this->q('"z"'));
+  public function testAtoms($skip=false) {
+    if($skip)$this->markTestSkipped();
+    $this->simpleTests([
+      '25i'  => 25,
+      '9j'   => 9,
+      '`ABC' => 'ABC',
+      '"z"'  => 'z',
+    ]);
   }
-  public function testTemporal() {
-    $this->markTestSkipped();
-    $this->assertEquals('a', $this->q('2015.6.26'));
+  public function testTemporal($skip=false) {
+    if($skip)$this->markTestSkipped();
+    $this->assertEquals(1435276800, $this->q('2015.06.26'));
   }
-  public function testLists() {
-    $this->markTestSkipped();
-    $this->assertEquals(['Z'], $this->q('enlist `Z'));
-    $this->assertEquals(['Z'], $this->q('enlist "Z"'));
-    $this->assertEquals('abc', $this->q('"abc"'));
-    // $this->assertEquals([1,2,3], $this->q('1 2 3'));
-    // $this->assertEquals([[1,2,3]], $this->q('enlist 1 2 3'));
-    // $this->assertEquals([1,2,3,'a','b'], $this->q('1 2 3,`a`b'));
-    // $this->assertEquals(['a','b','c'], $this->q('`a`b`c'));
-    // $this->assertEquals([['a','b','c']], $this->q('enlist `a`b`c'));
+  public function testLists($skip=false) {
+    if($skip)$this->markTestSkipped();
+    $this->simpleTests([
+      'enlist `Z'     => ['Z'],
+      'enlist "Z"'    => ['Z'],
+      '"XYZ"'         => ['X','Y','Z'],
+      '1 2 3i'        => [1,2,3],
+      '1 2 3j'        => [1,2,3],
+      'enlist 1 2 3'  => [[1,2,3]],
+      '1 2 3,`Z`X'    => [1,2,3,'Z','X'],
+      '`a`b`c'        => ['a','b','c'],
+      'enlist `a`b`c' => [['a','b','c']],
+      '(1 2 3;4 5 6)' => [[1,2,3],[4,5,6]],
+    ]);
   }
-  public function testDicts() {
-    $this->markTestSkipped();
-    // global $DP; $DP = true;
-    $this->assertEquals(['a'=>1,'b'=>2], $this->q('`a`b!1 2'));
-    $this->assertEquals(['a'=>[1],'b'=>[2]], $this->q('`a`b!enlist each 1 2i'));
-    $this->assertEquals(['a'=>1,'b'=>2,'c'=>'d'], $this->q('`a`b`c!1 2,`d'));
+  public function testDictsWithAtoms($skip=false) {
+    if($skip)$this->markTestSkipped();
+    $this->simpleTests([
+      '`X`Y!1 2'            => ['X'=>1,'Y'=>2],
+      '`X`Y`Z!1 2j,`def'    => ['X'=>1,'Y'=>2,'Z'=>'def'],
+      '`X`Y!1,enlist "qwe"' => ['X'=>1,'Y'=>['q','w','e']],
+      '`X`Y`Z!"qwe"'        => ['X'=>'q','Y'=>'w','Z'=>'e'],
+      '`Xx`Yy`Z!"qwe"'      => ['Xx'=>'q','Yy'=>'w','Z'=>'e'],
+    ]);
   }
-  public function testSingleRowTable() {
-    $this->markTestSkipped();
-    global $DP; $DP = true;
-    // $this->assertEquals(
-    //   [
-    //     ['a'=>1,'b'=>2],
-    //   ], $this->q('([]a:enlist 1;b: enlist 2)'));
-    // $this->assertEquals(
-    //   [
-    //     ['a'=>'c','b'=>'d'],
-    //   ], $this->q('([]a:enlist `c;b: enlist `d)'));
-    // $this->assertEquals(
-    //   [
-    //     ['a'=>'c'],
-    //   ], $this->q('([]a:enlist `c)'));
-    // $this->assertEquals(
-    //   [
-    //     ['a'=>'d','b'=>[1,2,3],'c'=>['q'=>5,'w'=>6]],
-    //   ], $this->q('([]a:enlist `d;b:enlist 1 2 3;c:(enlist `q`w!5 6))'));
+  public function testDictsWithLists($skip=false) {
+    if($skip)$this->markTestSkipped();
+    $this->simpleTests([
+      '`X`Y!(1 2;3 4)'               => ['X'=>[1,2],'Y'=>[3,4]],
+      '`X`Y!enlist each 1 2i'        => ['X'=>[1],'Y'=>[2]],
+      '`X`Y`Z!1 2,`d'                => ['X'=>1,'Y'=>2,'Z'=>'d'],
+      '`X`Y!(enlist 12),enlist"er"'  => ['X'=>12,'Y'=>['e','r']],
+      '`X`Y!12,enlist"er"'           => ['X'=>12,'Y'=>['e','r']],
+      '`X`Y!(enlist"qw"),enlist"er"' => ['X'=>['q','w'],'Y'=>['e','r']],
+    ]);
+
+    // this needs to be fixed? should be the other way around
+    $this->assertEquals(
+      $this->q('`X`Y!(enlist"q"),enlist"er"'),
+      ['X'=>'q','Y'=>['e','r']]
+    );
+
+  }
+  public function testSingleRowTable($skip=false) {
+    if($skip)$this->markTestSkipped();
     $this->assertEquals(
       [
-        ['q'=>'w','e'=>'r'],
+        ['X'=>1,'Y'=>2],
+      ], $this->q('([]X:enlist 1;Y: enlist 2)'));
+    $this->assertEquals(
+      [
+        ['a'=>'c','b'=>'d'],
+      ], $this->q('([]a:enlist `c;b: enlist `d)'));
+    $this->assertEquals(
+      [
+        ['a'=>'c'],
+      ], $this->q('([]a:enlist `c)'));
+    $this->assertEquals(
+      [
+        ['a'=>'d','b'=>[1,2,3],'c'=>['q'=>5,'w'=>6]],
+      ], $this->q('([]a:enlist `d;b:enlist 1 2 3;c:(enlist `q`w!5 6))'));
+    $this->assertEquals(
+      [
+        ['q'=>'e','w'=>'r'],
       ], $this->q('([]q:enlist "e";w: enlist "r")'));
   }
-  public function testMultiRowTable() {
-    $this->markTestSkipped();
-    $this->markTestSkipped();
+  public function testMultiRowTable($skip=false) {
+    if($skip)$this->markTestSkipped();
     $this->assertEquals(
       [
         ['a'=>'c'],
@@ -90,9 +117,8 @@ class KTest extends PHPUnit_Framework_TestCase {
         ['a'=>'e','b'=>'h'],
       ], $this->q('flip `a`b!(enlist "cde"),enlist"fgh"'));
   }
-  public function testSortedSingleRowTable() {
-    $this->markTestSkipped();
-    // global $DP; $DP = true;
+  public function testSortedSingleRowTable($skip=false) {
+    if($skip)$this->markTestSkipped();
     $this->assertEquals(
       [
         ['a'=>1,'b'=>2],
@@ -102,9 +128,8 @@ class KTest extends PHPUnit_Framework_TestCase {
         ['a'=>'c'],
       ], $this->q('`s#([]a:enlist `c)'));
   }
-  public function testSortedMultiRowTable() {
-    $this->markTestSkipped();
-    // global $DP; $DP = true;
+  public function testSortedMultiRowTable($skip=false) {
+    if($skip)$this->markTestSkipped();
     $this->assertEquals(
       [
         ['a'=>1,'b'=>2],
@@ -116,17 +141,19 @@ class KTest extends PHPUnit_Framework_TestCase {
         ['a'=>'d'],
       ], $this->q('`s#([]a:`c`d)'));
   }
-  public function testKeyedTable() {
-    $this->markTestSkipped();
-    // global $DP; $DP = true;
+  public function testKeyedTable($skip=false) {
+    if($skip)$this->markTestSkipped();
+      global $stop;$stop=true;
+
     $this->assertEquals(
       [
-        (object) ['a'=>1,'b'=>2]
+        ['a'=>1,'b'=>2]
       ], $this->q('([a:enlist 1]b:enlist 2)'));
-    // $this->assertEquals(
-    //   [
-    //     (object) ['a'=>1,'b'=>2]
-    //   ], $this->q('([a:1 3]b:2 4)'));
+    $this->assertEquals(
+      [
+        ['a'=>1,'b'=>2],
+        ['a'=>3,'b'=>4],
+      ], $this->q('([a:1 3]b:2 4)'));
   }
 
 }
