@@ -1,29 +1,31 @@
 <?php
-require_once 'dbg.inc';
 require_once 'kscan.inc';
-
 class K {
-  const DICT = 9;
-  const TABLE = 8;
-  private static $be = -1;
-  private static $bigint = true;
+  const ROW_ASSOC='assoc';
+  const ROW_OBJ='obj';
+  private static $DICT = 'DICT';
+  private static $TABLE = 'TABLE';
+  private static $be = null; // big endian?
+  private static $bigint = true; // 'q' format flag supported?
 
   private $h;
   private $collapseCharLists=false;
-  private $dt=false;
+  private $dt_fmt=false;
+  private $row_fmt=self::OBJ;
 
   private static function init() {
-    if (self::$be === -1) {
-      self::$be = (pack("N", -69) === pack("l", -69));
-      try { pack('q',1); } catch (\Exception $e) {$bigint=false;}
+    if (self::$be===null) {
+      self::$be=(pack("N", -69)===pack("L", -69));
+      try { pack('q',1); } catch (\Exception $e) {self::$bigint=false;}
     }
   }
 
   public function __construct($h = "localhost", $p = 1234, $up = "anonymous", $opts=[]) {
-    dbgp('__construct called', UNCOLOR);
     self::init();
-    if (isset($opts['dt']) && $opts['dt']) {
-      $this->dt=true;}
+    if (isset($opts['dt_fmt'])) {
+      $this->dt_fmt=$opts['dt_fmt'];}
+    if (isset($opts['row_fmt'])&&in_array($opts['row_fmt'],[self::ASSOC,self::OBJ])) {
+      $this->row_fmt=$opts['row_fmt'];}
 
     $this->h = fsockopen($h, $p);
     fwrite($this->h, $up . pack("cc", 1, 0));
@@ -37,7 +39,7 @@ class K {
   public static function q($s) {
     return (new static )->k($s);
   }
-  public function ks($s) {                                                      dbgp('ks called', UNCOLOR);
+  public function ks($s) {
     if (func_num_args() === 1) {
       $x = self::enc(0, $s);
     } else {
@@ -46,18 +48,18 @@ class K {
     fwrite($this->h, $x);
   }
 
-  public function k($s) {                                                       dbgp("k called: $s", UNCOLOR);
+  public function k($s) {
     if (func_num_args() === 1) {
       $x = self::enc(1, $s);
     } else {
       $x = self::enc(1, func_get_args());
     }
-    //                                                                          dbgp($x);
+    //
     fwrite($this->h, $x);
     return $this->kr($s);
   }
 
-  public function ka($s) {                                                      dbgp('ka called', UNCOLOR);
+  public function ka($s) {
     if (func_num_args() === 1) {
       $x = self::enc(1, $s);
     } else {
@@ -66,7 +68,7 @@ class K {
     fwrite($this->h, $x);
   }
 
-  public function kr($req = '') {                                               dbgp('kr called', UNCOLOR);
+  public function kr($req = '') {
     $a = unpack("l2", fread($this->h, 8));
     $scanner = new KScan(fread($this->h, $a[2] - 8), $req);
     return $this->dec($scanner);
@@ -174,23 +176,10 @@ class K {
     }
 
   }
-
-  // private static function om(&$c) {
-  //   $o = array();
-  //   foreach ($c as $i => &$x) {
-  //     $o[$i] = (object) $x;
-  //   }
-  //   return $o;
-  // }
-
   private function d1($x, $t, $depth = 0) {
-      echo ($this->dt?'DT':'');
-    $depth++;                                                                   dbgp(applyDepth("START d1: " . qtype(-$t), $depth), PURP);
+    $depth++;
     $result = null;
     switch ($t) {
-      case 0:
-        throw new KException('glist');
-        $result = $this->dec($x);
       case 1:
         $result = 1 == $x->r1();
         break;
@@ -204,12 +193,14 @@ class K {
         $result = $x->rn("l", 4);
         break;
       case 7:
-        $a = $x->rn("q", 8);
-        // if ($a[2] == -1 && $a[1] < 0) {
-        //   $result = $a[1];
-        //   break;
-        // }
-        $result = $a;
+        if (self::$bigint) {
+          $result = $x->rn("q", 8);
+        } else {
+          $a=unpack("l2",$x->sn(8));
+          if($a[2]==-1&&$a[1]<0)
+            $result=$a[1];
+          if($a[2])throw new Exception("Number too long(64)");return $a[1];
+        }
         break;
       case 8:
         $result = $x->rn("f", 4);
@@ -217,20 +208,17 @@ class K {
       case 9:
         $result = $x->rn("d", 8);
         break;
-      case 10:                                                                  dbgp('read a char?');
+      case 10:
         $result = $x->sn(1);
         break;
       case 11:
-        $s = "";                                                                dbgp("get a sym ", RED);
-        // while (!in_array($c = trim($x->sn(1,true)), ["\0", false])) {          dbgp("read a sym $c", RED);
-        while ($c = trim($x->sn(1,true))) {                                     dbgp("read a sym $c", RED);
-          $s .= $c;                                                             dbgp('$s so far ' . bin2hex($s), RED);
-        }
+        $s = "";
+        while ($c = trim($x->sn(1))) {$s .= $c;}
         $result = $s;
         break;
       case 14:
         $result = 86400 * (10957 + $x->rn("l", 4));
-        if ($this->dt) $result = new DateTime('@'.$result);
+        if ($this->dt_fmt) $result = gmstrftime('%Y-%m-%d',$result);
         break;
       case 101:
         $result = null;
@@ -239,24 +227,24 @@ class K {
         throw new KException($this->d1($x,11));
       default:
         throw new Exception("Can't decode this $t yet");
-    }                                                                           dbgp(applyDepth(qtype(-$t) . ' acqd: ', $depth), GREEN, false);dbgp(applyDepth(var_export($result, true), $depth), CYAN, true);
+    }
     return $result;
   }
 
   private function dec($x, $cxt = false, $depth = 0) {
-    $depth++;                                                                   dbgp(applyDepth("START dec: ", $depth), PURP);
+    $depth++;
 
     // read the type
     $t = $x->rn('c',1);
     if($t===-128) throw new KException($this->d1($x,11));
-                                                                                dbgp(applyDepth("t: ".qtype($t), $depth), PURP);
+
     // handle atoms with d1
-    if ($t < 0) {                                                               dbgp(applyDepth("getting a (single?) " . qtype($t), $depth), RED);
+    if ($t < 0) {
       return $this->d1($x, -$t, $depth);
     }
     if ($t == 99 || $t == 127) {
-      $keys = $this->dec($x,$cxt?:self::DICT,$depth);
-      $vals = $this->dec($x,$cxt?:self::DICT,$depth);
+      $keys = $this->dec($x,$cxt?:self::$DICT,$depth);
+      $vals = $this->dec($x,$cxt?:self::$DICT,$depth);
       if(is_array(reset($keys)) && is_array(reset($vals))){
         // in a keyed table
         $kT=[];
@@ -267,13 +255,12 @@ class K {
       }
       return array_combine($keys, $vals);
     } elseif ($t == 98) {
-      $attrs = $x->rn('c',1);                                                   dbgp(applyDepth('throwing away table attrs',$depth), UNCOLOR);
-      $dictType = $x->rn('c',1);                                                dbgp(applyDepth('dicts are tables, we get it',$depth), UNCOLOR);
-      if ($dictType!==99) throw new Error('what');
+      $attrs = $x->rn('c',1);
+      $dictType = $x->rn('c',1);
       // get a list of syms for cols
-                                                        dbgp(applyDepth('start cols',$depth),UNCOLOR);
-      $cols = $this->dec($x,$cxt?:self::DICT,$depth);   dbgp(applyDepth('FINISH cols, start rows',$depth),UNCOLOR);
-      $rows = $this->dec($x,$cxt?:self::DICT,$depth);   dbgp(applyDepth('FINISH rows',$depth),UNCOLOR);
+      $cols = $this->dec($x,$cxt?:self::$TABLE,$depth);
+      $rows = $this->dec($x,$cxt?:self::$TABLE,$depth);
+      if($this->row_fmt=='object'){foreach($rows as &$r){$r=(object)$r;}}
       $colTable = array_combine($cols, $rows);
       return self::transpose($colTable);
       // return $cxt?$colTable:self::transpose($colTable);
@@ -283,9 +270,9 @@ class K {
   }
 
   private function decn($x,$t=0,$depth=0) {
-    $depth++;                                                                  dbgp(applyDepth("decn for a " . qtype($t), $depth), RED);
-    $attrs = $x->rn('c',1);                                                    dbgp(applyDepth('throwing away list attrs',$depth), UNCOLOR);
-    $len = $x->rn('l', 4);                                                     dbgp(applyDepth("getting $len things", $depth), RED);
+    $depth++;
+    $attrs = $x->rn('c',1);
+    $len = $x->rn('l', 4);
 
     $l=[];
     $decFn = $t==0?'dec':'d1';
@@ -293,7 +280,7 @@ class K {
     while ($len--) {$l[] = $this->$decFn($x, $t?:false, $depth);}
     return $l;
 
-    if ($t == 10 && $this->collapseCharLists) {                           dbgp(applyDepth('MAKE MA STRINGS IMPLODE',$depth),UNCOLOR);
+    if ($t == 10 && $this->collapseCharLists) {
       // return implode('', $l);
     }
     return $l;
@@ -308,5 +295,4 @@ class K {
     }
     return $out;
   }
-
 }

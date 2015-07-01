@@ -6,8 +6,8 @@ define('PURP', "\033[35m");
 define('CYAN', "\033[36m");
 define('UNCOLOR', "\033[0m");
 $DP = false;
-function b2h() { return call_user_func_array('bin2hex',func_get_args());}
-function dd() { echo"\n";call_user_func_array('var_dump',func_get_args()); die;}
+if(!function_exists('b2h')){function b2h() { return call_user_func_array('bin2hex',func_get_args());}}
+if(!function_exists('dd')){function dd() { echo"\n";call_user_func_array('var_dump',func_get_args()); die;}}
 function dbgp($m, $color = YALLO,$nl = false) {
   global $DP;
   if (!$DP) return;  
