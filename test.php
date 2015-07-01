@@ -7,7 +7,7 @@ class KTest extends PHPUnit_Framework_TestCase {
   private $conn = null;
 
   public function setUp(){
-    $this->conn = $k = new K("localhost", 1234, 'anon', ['datetime'=>true]); }
+    $this->conn = $k = new K("localhost", 1234); }
   public function tearDown(){ }
 
   private function q($stmt) { return $this->conn->k($stmt); }
@@ -142,6 +142,9 @@ class KTest extends PHPUnit_Framework_TestCase {
         ['a'=>1,'b'=>2],
         ['a'=>3,'b'=>4],
       ], $this->q('([a:1 3]b:2 4)'));
+
+    $qFetchAsObjects = (new K('localhost',1234,null,['row_fmt'=>K::ROW_OBJ]));
+
   }
   public function testThingsWithWeirdStructure() {
     $this->assertEquals(
@@ -222,6 +225,27 @@ class KTest extends PHPUnit_Framework_TestCase {
 
 
   }
+  public function testFetchingAsObjects() {
+    $qFetchAsObjects = (new K('localhost',1234,null,['row_fmt'=>K::ROW_OBJ]));
+    $this->assertEquals(
+      [(object) ['q'=>'e','w'=>'r']],
+      $qFetchAsObjects->k('([]q:enlist "e";w: enlist "r")'));
+    $this->assertEquals(
+      [
+        (object)['a'=>'d','b'=>[1,2,3],'c'=>['q'=>5,'w'=>6]],
+        (object)['a'=>'word','b'=>99,'c'=>['q'=>55,'w'=>66]],
+      ],
+      $qFetchAsObjects->k('([]a:`d`word;b:(enlist 1 2 3),enlist 99;c:(enlist `q`w!5 6),enlist `q`w!55 66)'));
+    // same as above but with a as a key
+    $this->assertEquals(
+      [
+        (object)['a'=>'d','b'=>[1,2,3],'c'=>['q'=>5,'w'=>6]],
+        (object)['a'=>'word','b'=>99,'c'=>['q'=>55,'w'=>66]],
+      ],
+      $qFetchAsObjects->k('([a:`d`word]b:(enlist 1 2 3),enlist 99;c:(enlist `q`w!5 6),enlist `q`w!55 66)'));
+
+  }
+
   public function testErrors() {
     $this->setExpectedException('KException');
     $this->q('`m`n!1,2 3');

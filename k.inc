@@ -2,7 +2,7 @@
 require_once 'kscan.inc';
 class K {
   const ROW_ASSOC='assoc';
-  const ROW_OBJ='obj';
+  const ROW_OBJ='object';
   private static $DICT = 'DICT';
   private static $TABLE = 'TABLE';
   private static $be = null; // big endian?
@@ -11,7 +11,7 @@ class K {
   private $h;
   private $collapseCharLists=false;
   private $dt_fmt=false;
-  private $row_fmt=self::OBJ;
+  private $row_fmt=self::ROW_ASSOC;
 
   private static function init() {
     if (self::$be===null) {
@@ -24,7 +24,7 @@ class K {
     self::init();
     if (isset($opts['dt_fmt'])) {
       $this->dt_fmt=$opts['dt_fmt'];}
-    if (isset($opts['row_fmt'])&&in_array($opts['row_fmt'],[self::ASSOC,self::OBJ])) {
+    if (isset($opts['row_fmt'])&&in_array($opts['row_fmt'],[self::ROW_ASSOC,self::ROW_OBJ])) {
       $this->row_fmt=$opts['row_fmt'];}
 
     $this->h = fsockopen($h, $p);
@@ -223,8 +223,6 @@ class K {
       case 101:
         $result = null;
         break;
-      case 128:
-        throw new KException($this->d1($x,11));
       default:
         throw new Exception("Can't decode this $t yet");
     }
@@ -243,13 +241,15 @@ class K {
       return $this->d1($x, -$t, $depth);
     }
     if ($t == 99 || $t == 127) {
-      $keys = $this->dec($x,$cxt?:self::$DICT,$depth);
-      $vals = $this->dec($x,$cxt?:self::$DICT,$depth);
-      if(is_array(reset($keys)) && is_array(reset($vals))){
+      $keys = $this->dec($x,self::$DICT,$depth);
+      $vals = $this->dec($x,self::$DICT,$depth);
+      if(is_array(reset($keys)) && is_array(reset($vals))) {
         // in a keyed table
         $kT=[];
-        for ($rows=count($keys); 0<$rows; $rows--) { 
-          $kT[]=array_merge(array_shift($keys),array_shift($vals));
+        for ($rows=count($keys); 0<$rows; $rows--) {
+          $r=array_merge(array_shift($keys),array_shift($vals));
+          if($this->row_fmt==self::ROW_OBJ) $r=(object)$r;
+          $kT[]=$r;
         }
         return $kT;
       }
@@ -258,11 +258,12 @@ class K {
       $attrs = $x->rn('c',1);
       $dictType = $x->rn('c',1);
       // get a list of syms for cols
-      $cols = $this->dec($x,$cxt?:self::$TABLE,$depth);
-      $rows = $this->dec($x,$cxt?:self::$TABLE,$depth);
-      if($this->row_fmt=='object'){foreach($rows as &$r){$r=(object)$r;}}
-      $colTable = array_combine($cols, $rows);
-      return self::transpose($colTable);
+      $cols = $this->dec($x,self::$TABLE,$depth);
+      $rows = $this->dec($x,self::$TABLE,$depth);
+      $tbl = self::transpose(array_combine($cols, $rows));
+      // $cxt may need to become a stack at some point...
+      if($this->row_fmt==self::ROW_OBJ&&$cxt!=self::$DICT){foreach($tbl as &$r){$r=(object)$r;}}
+      return $tbl;
       // return $cxt?$colTable:self::transpose($colTable);
     }
 
@@ -280,9 +281,9 @@ class K {
     while ($len--) {$l[] = $this->$decFn($x, $t?:false, $depth);}
     return $l;
 
-    if ($t == 10 && $this->collapseCharLists) {
-      // return implode('', $l);
-    }
+    // if ($t == 10 && $this->collapseCharLists) {
+    //   return implode('', $l);
+    // }
     return $l;
   }
 
