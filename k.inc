@@ -1,5 +1,30 @@
 <?php
-require_once 'kscan.inc';
+class KException extends Exception {};
+class KScan {
+  private $s,$i,$n;
+  // public function __toString() {
+  //   return $this->req . PHP_EOL .
+  //   '`' . chunk_split(substr(bin2hex($this->s),$this->i*2),2,'`') . PHP_EOL
+  //   . '^' . PHP_EOL .
+  //   $this->i . ' / ' . $this->n . PHP_EOL;
+  // }
+  public function __construct($s) {
+    $this->s = $s;
+    $this->i = 0;
+    $this->n = strlen($s) - 0;
+    $this->req = $req;
+  }
+  public function rn($s, $n) {
+    $a = unpack($s, $this->sn($n));
+    return reset($a);
+  }
+  public function sn($n,$psy=false) {
+    if ($this->n<$this->i+$n)throw new Exception('Attempting to read past end');
+    $i = $this->i;
+    $this->i += $n;
+    return substr($this->s, $i, $n);
+  }
+}
 class K {
   const ROW_ASSOC='assoc';
   const ROW_OBJ='object';
