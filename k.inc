@@ -16,17 +16,17 @@ class KScan {
   }
 }
 class K {
-  private static $be = -1; // big endian?
   const ROW_ASSOC='assoc';
   const ROW_OBJ='object';
+  private static $be = -1; // big endian?
   private static $DICT = 'DICT';
   private static $TABLE = 'TABLE';
   private static $bigint = true; // 'q' format flag supported?
 
   private $h;
-  private $collapseCharLists=true;
+  private $collStrs=false;
   private $dt_fmt=false;
-  private $row_fmt=self::ROW_OBJ;
+  private $row_fmt=self::ROW_ASSOC;
 
   private static function init() {
     if(self::$be === -1) {
@@ -34,11 +34,12 @@ class K {
       try { pack('q',1); } catch (\Exception $e) {self::$bigint=false;}
     }
   }
-
   public function __construct($h="localhost",$p=1234,$up="anonymous",$opts=[]) {
     self::init();
     if (isset($opts['dt_fmt'])) {
       $this->dt_fmt=$opts['dt_fmt'];}
+    if (isset($opts['collStrs'])) {
+      $this->collStrs=$opts['collStrs'];}
     if (isset($opts['row_fmt'])&&in_array($opts['row_fmt'],[self::ROW_ASSOC,self::ROW_OBJ])) {
       $this->row_fmt=$opts['row_fmt'];}
 
@@ -64,9 +65,21 @@ class K {
   }
   public function kr() {
     $a=unpack("l2", fread($this->h,8));
-    return self::dec(new KScan(fread($this->h,$a[2]-8)));
+    $dataReturned = self::dec(new KScan(fread($this->h,$a[2]-8)));
+    if($this->collStrs) self::implodeCharLists($dataReturned);
+    return $dataReturned;
   }
-
+  public static function implodeCharLists(&$data) {
+    foreach ($data as &$potentiallyCharList) {
+      if(is_array($potentiallyCharList)) {
+        if (isset($potentiallyCharList[0])&&is_string($potentiallyCharList[0])) {
+          try {$potentiallyCharList=implode('',$potentiallyCharList);}catch(Exception $e){echo "woops\n";}
+        } else {
+          self::implodeCharLists($potentiallyCharList);
+        }
+      }
+    }
+  }
   public static function S($x) {
     $s = pack("c", -11) . $x . pack("c", 0);
     return (object)array("s" => $s);
@@ -180,11 +193,6 @@ class K {
     $decFn = $t==0?'dec':'d1';
     while ($len--) {$l[] = $this->$decFn($x, $t?:false);}
     return $l;
-
-    // if ($t == 10 && $this->collapseCharLists && ) {
-    //   return implode('', $l);
-    // }
-    // return $l;
   }
 
   private static function transpose($arr) {
