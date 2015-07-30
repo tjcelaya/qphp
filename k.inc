@@ -22,6 +22,7 @@ class K {
   private static $DICT = 'DICT';
   private static $TABLE = 'TABLE';
   private static $bigint = true; // 'q' format flag supported?
+  private static $zeroTime = 946684800; // 2000.01.01
 
   private $h;
   private $collStrs=false;
@@ -143,6 +144,16 @@ class K {
     case 9:return $x->rn("d", 8);
     case 10:return $x->sn(1);
     case 11:$s="";while($c=trim($x->sn(1))){$s.=$c;}return$s;
+    case 12:
+      $secs=null;
+      if (self::$bigint) {
+        $secs = $x->rn("q", 8);
+      } else {
+        $secs=unpack("l2",$x->sn(8));
+        if($secs[2]==-1&&$secs[1]<0)$secs=$secs[1];
+        if($secs[2])throw new Exception("Number too long(64)");
+      }
+      return date('Y-m-d H:i:s', self::$zeroTime+$secs/1000000000); // there has to be a better way
     case 14:$date=86400*(10957+$x->rn("l", 4));return $this->dt_fmt?gmstrftime('%Y-%m-%d',$date):$date;
     case 101:return null;
     default:throw new Exception("Can't decode this $t yet");
