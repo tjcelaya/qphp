@@ -153,7 +153,7 @@ class K {
         if($secs[2]==-1&&$secs[1]<0)$secs=$secs[1];
         if($secs[2])throw new Exception("Number too long(64)");
       }
-      return date('Y-m-d H:i:s', self::$zeroTime+$secs/1000000000); // there has to be a better way
+      return gmdate('Y-m-d H:i:s', self::$zeroTime+$secs/1000000000); // there has to be a better way
     case 14:$date=86400*(10957+$x->rn("l", 4));return $this->dt_fmt?gmstrftime('%Y-%m-%d',$date):$date;
     case 101:return null;
     default:throw new Exception("Can't decode this $t yet");
