@@ -1,5 +1,4 @@
 <?php
-require_once 'dbg.inc';
 require_once 'k.inc';
 
 class KTest extends PHPUnit_Framework_TestCase {
@@ -7,7 +6,7 @@ class KTest extends PHPUnit_Framework_TestCase {
   private $conn = null;
 
   public function setUp(){
-    $this->conn = $k = new K("localhost", 1234); }
+    $this->conn = new K("localhost", 1234); }
   public function tearDown(){ }
 
   private function q($stmt) { return $this->conn->k($stmt); }
@@ -144,7 +143,6 @@ class KTest extends PHPUnit_Framework_TestCase {
       ], $this->q('([a:1 3]b:2 4)'));
 
     $qFetchAsObjects = (new K('localhost',1234,null,['row_fmt'=>K::ROW_OBJ]));
-
   }
   public function testThingsWithWeirdStructure() {
     $this->assertEquals(
@@ -222,8 +220,6 @@ class KTest extends PHPUnit_Framework_TestCase {
     // ---| ---
     // x x| 8 9
     // currently returns [ ['x','x','m'=>8,'n'=>9 ] ]
-
-
   }
   public function testFetchingAsObjects() {
     $qFetchAsObjects = (new K('localhost',1234,null,['row_fmt'=>K::ROW_OBJ]));
@@ -243,11 +239,46 @@ class KTest extends PHPUnit_Framework_TestCase {
         (object)['a'=>'word','b'=>99,'c'=>['q'=>55,'w'=>66]],
       ],
       $qFetchAsObjects->k('([a:`d`word]b:(enlist 1 2 3),enlist 99;c:(enlist `q`w!5 6),enlist `q`w!55 66)'));
-
   }
-
   public function testErrors() {
     $this->setExpectedException('KException');
     $this->q('`m`n!1,2 3');
+  }
+  public function testCharListCollapse() {
+    $k = new K("localhost",1234,null,['collStrs'=>true]);
+
+    $this->assertEquals(
+      ['a'=>'some','b'=>'words'],
+      $k->k('`a`b!("some";"words")'));
+
+    $this->assertEquals(
+      ['noun'=>'verbing','verb'=>'weirds','subject'=>'language'],
+      $k->k('`noun`verb`subject!("verbing";"weirds";"language")'));
+
+    $this->assertEquals(
+      [
+        ['id'=>0,'incantation'=>'klaatu'],
+        ['id'=>1,'incantation'=>'barada'],
+        ['id'=>2,'incantation'=>'nikto'],
+      ],
+      $k->k('([]id:til 3;incantation:(`klaatu;`barada;`nikto))'));
+    $this->assertEquals(
+      [
+        ['id'=>0,'incantation'=>'klaatu'],
+        ['id'=>1,'incantation'=>'barada'],
+        ['id'=>2,'incantation'=>'nikto'],
+      ],
+      $k->k('([]id:til 3;incantation:("klaatu";"barada";"nikto"))'));
+    $this->assertEquals(
+      [
+        "A" => [],
+        "B" => ['a'=>"ABCDE",],
+        "C" => ['a'=>"ABCDE",'b'=>"BCDEA",],
+        "D" => ['a'=>"ABCDE",'b'=>"BCDEA",'c'=>"CDEAB",],
+        "E" => ['a'=>"ABCDE",'b'=>"BCDEA",'c'=>"CDEAB",'d'=>"DEABC"],
+      ],
+      $k->k("`A`B`C`D`E!((til 5)#\:`$'`char$'(`int$\"a\")+til 5)!'(til 5) #\: (til 5) rotate\: `char$(`int$\"A\")+til 5"));
+      // why
+
   }
 }
