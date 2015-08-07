@@ -32,7 +32,7 @@ class K {
   private static function init() {
     if(self::$be === -1) {
       self::$be = (pack("N", -69) === pack("L", -69));
-      try { pack('q',1); } catch (\Exception $e) {self::$bigint=false;}
+      self::$bigint = @pack('q',1) === 1;
     }
   }
   public function __construct($h="localhost",$p=1234,$up="anonymous",$opts=[]) {
